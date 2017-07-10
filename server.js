@@ -1,0 +1,85 @@
+const express = require("express");
+const mustacheExpress = require("mustache-express");
+const app = express();
+const bodyParser = require("body-parser");
+const mongoose = require("mongoose");
+mongoose.Promise = require("bluebird");
+const port = process.env.PORT || 8080;
+const dbURL = "mongodb://localhost:27017/pokemon";
+var PokemonCard = require("./models/pokemon.js");
+
+// SET VIEW ENGINE
+app.engine("mustache", mustacheExpress());
+app.set("view engine", "mustache");
+app.set("views", __dirname + "/views");
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(express.static("public"));
+
+//
+app.get("/", function(req, res) {
+  PokemonCard.find().then(foundCards => {
+    res.render("index", { cards: foundCards });
+  });
+});
+
+app.post("/addCard", function(req, res) {
+  console.log(req.body);
+  let newCard = new PokemonCard();
+  newCard.name = req.body.name;
+  newCard.type = req.body.type;
+  newCard.rarity = req.body.rarity;
+  newCard.releaseDate = {
+    month: req.body.month,
+    year: Number(req.body.year)
+  };
+  console.log(newCard);
+  newCard.save().then(savedCard => {
+    res.redirect("/");
+  });
+});
+
+app.get("/addCard", function(req, res) {
+  res.render("addCard", {});
+});
+
+app.get("/update/:id", (req, res) => {
+  PokemonCard.findOne({ _id: req.params.id })
+    .then(foundPokemon => {
+      res.render("update", { singleCard: foundPokemon });
+    })
+    .catch(err => {
+      res.status(500).send(err);
+    });
+});
+app.post("/update/:id", (req, res) => {
+  PokemonCard.updateOne({ _id: req.params.id }, req.body)
+    .then(foundPokemon => {
+      res.redirect("/");
+    })
+    .catch(err => {
+      res.status(500).send(err);
+    });
+});
+app.post("/delete", (req, res) => {
+  PokemonCard.deleteOne({ _id: req.body.id })
+    .then(() => {
+      res.redirect("/");
+    })
+    .catch(err => {
+      res.status(500).send(err);
+    });
+});
+
+mongoose
+  .connect(dbURL)
+  .then(() => {
+    console.log("Success connected to Mongodb");
+  })
+  .catch(err => {
+    console.log("Error: ", err);
+  });
+
+// LISTEN
+app.listen(port, () => {
+  console.log(`You are on the PORT: ${port}`);
+});
